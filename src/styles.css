@@ -346,3 +346,9 @@ small { font-size: .82rem; }
 @media (max-width: 620px) { .pair-row { grid-template-columns: 1fr auto; } .pair-row em { display: none; } }
 
 .err-detail { display: block; margin-top: 6px; opacity: .85; font-family: ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+
+.name-hint { color: var(--yellow); font-weight: 600; }
+.name-field.nudge input { border-color: var(--yellow); animation: shake .5s; }
+@keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+.vopt.locked { opacity: .55; }
+.vopt.locked:hover { transform: none; border-color: var(--line); }

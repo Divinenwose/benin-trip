@@ -399,10 +399,10 @@ function Notice({ votes }) {
   return <p className="notice ok"><i /> Live tally. Everyone's votes update here as they come in.</p>
 }
 
-function Option({ label, sub, price, count, total, on, onClick, icon: Icon }) {
+function Option({ label, sub, price, count, total, on, onClick, icon: Icon, locked }) {
   const pct = total ? Math.round((count / total) * 100) : 0
   return (
-    <button className={'vopt ' + (on ? 'on' : '')} onClick={onClick} aria-pressed={on}>
+    <button className={'vopt ' + (on ? 'on' : '') + (locked ? ' locked' : '')} onClick={onClick} aria-pressed={on} aria-disabled={locked}>
       <motion.i className="vfill" initial={false} animate={{ width: pct + '%' }} transition={{ type: 'spring', stiffness: 90, damping: 18 }} />
       <span className="vic">{Icon && <Icon size={22} />}</span>
       <span className="vtxt"><b>{label}</b><small>{sub}</small></span>
@@ -412,7 +412,7 @@ function Option({ label, sub, price, count, total, on, onClick, icon: Icon }) {
   )
 }
 
-function Leg({ title, sub, options, field, votes, icon }) {
+function Leg({ title, sub, options, field, votes, icon, name, gate }) {
   const { counts, total } = tally(votes.ballots, (b) => b[field])
   const sel = votes.mine[field]
   return (
@@ -422,7 +422,7 @@ function Leg({ title, sub, options, field, votes, icon }) {
       <div className="vopts">
         {options.map((o) => (
           <Option key={o.id} icon={icon} label={o.name} sub={o.seats} price={naira(o.pp) + ' pp'} count={counts[o.id] || 0} total={total} on={sel === o.id}
-            onClick={(e) => { if (sel !== o.id) burstFrom(e); votes.update({ [field]: sel === o.id ? null : o.id }) }} />
+            onClick={(e) => { if (!name) return gate(); if (sel !== o.id) burstFrom(e); votes.update({ [field]: sel === o.id ? null : o.id, name }) }} locked={!name} />
         ))}
       </div>
     </Reveal>
@@ -520,6 +520,13 @@ export function Vote({ votes }) {
   const left = BUDGET - sub
   const voters = ballots.filter(hasVoted).length
   const [name, setName] = useState(mine.name || '')
+  const [nudge, setNudge] = useState(false)
+  const cleanName = name.trim().length >= 2 ? name.trim() : ''
+  const gate = () => {
+    const el = document.getElementById('voter-name')
+    if (el) el.focus()
+    setNudge(true); setTimeout(() => setNudge(false), 900)
+  }
   useEffect(() => { if (mine.name && !name) setName(mine.name) }, [mine.name])
   useEffect(() => {
     if ((mine.name || '') === name.trim()) return
@@ -534,17 +541,18 @@ export function Vote({ votes }) {
           Pick one bus for Lagos to the border and one ride for the border to the Airbnb. The pair with the most votes sets the final transport price. Change your mind any time.
         </SectionHead>
         <Reveal className="vote-top">
-          <label className="name-field" htmlFor="voter-name">
-            <span>Your name (shown next to your picks)</span>
-            <input id="voter-name" type="text" maxLength={24} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Ada" autoComplete="nickname" />
+          <label className={'name-field ' + (nudge ? 'nudge' : '')} htmlFor="voter-name">
+            <span>Your name (required, shown next to your picks)</span>
+            <input id="voter-name" type="text" maxLength={24} value={name} onChange={(e) => setName(e.target.value)} placeholder="Type your name to unlock voting" autoComplete="nickname" required />
+            {!cleanName && <small className="name-hint">Enter your name first, then pick your options below.</small>}
           </label>
           <div className="voters"><Users size={20} /><b><Counter to={voters} duration={0.8} /></b><small>{voters === 1 ? 'traveller has' : 'travellers have'} voted</small></div>
         </Reveal>
         <Notice votes={votes} />
 
         <div className="polls">
-          <Leg title="Leg 1 · Lagos to the border" sub="Round trip. Pick the bus you want to ride." options={LEG1} field="t1" votes={votes} icon={Bus} />
-          <Leg title="Leg 2 · Border to the Airbnb" sub="Round trip. Shared bus or a private car." options={LEG2} field="t2" votes={votes} icon={Car} />
+          <Leg title="Leg 1 · Lagos to the border" sub="Round trip. Pick the bus you want to ride." options={LEG1} field="t1" votes={votes} icon={Bus} name={cleanName} gate={gate} />
+          <Leg title="Leg 2 · Border to the Airbnb" sub="Round trip. Shared bus or a private car." options={LEG2} field="t2" votes={votes} icon={Car} name={cleanName} gate={gate} />
         </div>
 
         <Results votes={votes} />

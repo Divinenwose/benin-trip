@@ -32,6 +32,7 @@ as $$
 declare h text;
 begin
   if p_voter is null or length(p_voter) < 16 then raise exception 'bad voter'; end if;
+  if length(trim(coalesce(p_name, ''))) < 2 then raise exception 'name required'; end if;
   h := encode(digest(p_voter, 'sha256'), 'hex');
   insert into public.votes (voter_hash, name, t1, t2, updated_at)
   values (h, left(coalesce(p_name, ''), 24), p_t1, p_t2, now())

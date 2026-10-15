@@ -69,6 +69,8 @@ export function useVotes() {
   const chain = useRef(Promise.resolve())
   const seeded = useRef(false)
   const sb = useRef(null)
+  const confirmed = useRef(false)
+  const pending = useRef(0)
 
   useEffect(() => {
     let dead = false
@@ -93,6 +95,14 @@ export function useVotes() {
               if (dead) return
               setRemote(rows.map((r) => ({ ...r, id: r.id })))
               setMode('shared'); setErr(null); setErrInfo('')
+              const mineRow = myHash && rows.find((r) => r.voter_hash === myHash)
+              if (mineRow) confirmed.current = true
+              else if (confirmed.current && myHash && pending.current === 0 && hasVoted(latest.current)) {
+                // The organiser reset the tally: clear this device's copy too.
+                const fresh = { name: latest.current.name || '', t1: null, t2: null }
+                latest.current = fresh; setMine(fresh); saveLocal(fresh)
+                confirmed.current = false
+              }
               if (!seeded.current) {
                 seeded.current = true
                 const me = myHash && rows.find((r) => r.voter_hash === myHash)
@@ -137,10 +147,12 @@ export function useVotes() {
   const push = useCallback(() => {
     if (sb.current && sb.current.token) {
       const snapshot = { ...latest.current }
+      pending.current++
       chain.current = chain.current
         .then(() => sbCast(sb.current.token, snapshot))
-        .then(() => { setErr(null); setErrInfo(''); setSaved((n) => n + 1); return sb.current.reload && sb.current.reload() })
+        .then(() => { confirmed.current = true; setErr(null); setErrInfo(''); setSaved((n) => n + 1) })
         .catch((e) => { setErr('unavailable'); setErrInfo(String((e && e.message) || e)) })
+        .then(() => { pending.current--; return sb.current.reload && sb.current.reload() })
       return
     }
     const c = ctx.current
@@ -157,15 +169,15 @@ export function useVotes() {
     latest.current = next
     setMine(next)
     saveLocal(next)
-    clearTimeout(timer.current)
-    timer.current = setTimeout(push, 450)
+    if (timer.current) { clearTimeout(timer.current) } else { pending.current++ }
+    timer.current = setTimeout(() => { timer.current = null; pending.current--; push() }, 450)
   }, [push])
 
   // Ballots shown to everyone: remote rows, with my own row replaced by my live copy.
   const uid = ctx.current ? ctx.current.uid : null
   const myHash = sb.current ? sb.current.myHash : null
   let ballots = remote.filter((r) => r.id !== uid && !(myHash && r.voter_hash === myHash))
-  if (hasVoted(mine)) ballots = [...ballots, { id: uid || myHash || 'me', ...mine }]
+  if (hasVoted(mine) && (mine.name || '').trim()) ballots = [...ballots, { id: uid || myHash || 'me', ...mine }]
 
   return { mine, update, ballots, mode, err, errInfo, saved }
 }
