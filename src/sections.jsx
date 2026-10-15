@@ -7,7 +7,7 @@ import {
 import { Reveal, Counter, SectionHead, burstFrom } from './ui.jsx'
 import { useCountdown, tally, hasVoted } from './hooks.js'
 import {
-  RATE, naira, cfa, TRIP_START, PAY_DEADLINE, BUDGET, ROOM_PP, LEG1, LEG2, combo, STOPS, OPTIONALS, DAYS, REQS, ACCOUNT,
+  RATE, naira, cfa, TRIP_START, PAY_DEADLINE, BUDGET, ROOM_PP, LEG1, LEG2, combo, STOPS, OPTIONALS, DAYS, REQS, ACCOUNTS,
 } from './data.js'
 
 const go = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -580,12 +580,27 @@ export function Vote({ votes }) {
 }
 
 /* ───────────── PAYMENT ───────────── */
+function AccountCard({ a }) {
+  const [copied, setCopied] = useState(false)
+  const id = 'acct-' + a.number
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(a.number); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch { const el = document.getElementById(id); if (el) { const r = document.createRange(); r.selectNodeContents(el); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r) } }
+  }
+  return (
+    <Reveal className="account">
+      <div className="acct-ic"><Banknote size={28} /></div>
+      <div className="acct-main">
+        <small>{a.label}</small>
+        <strong id={id}>{a.number}</strong>
+        <span>{a.name} · {a.bank}</span>
+      </div>
+      <button className="btn btn-yellow" onClick={copy}>{copied ? <><Check size={18} /> Copied</> : <><Copy size={18} /> Copy number</>}</button>
+    </Reveal>
+  )
+}
+
 export function Payment() {
   const t = useCountdown(PAY_DEADLINE)
-  const [copied, setCopied] = useState(false)
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(ACCOUNT.number); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch { const el = document.getElementById('acct-no'); if (el) { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r) } }
-  }
   const steps = [
     { k: 'Now', v: 'Start your part payment', c: 'green' },
     { k: '31 Oct', v: 'At least half (₦150,000) in', c: 'yellow' },
@@ -625,15 +640,10 @@ export function Payment() {
           ))}
         </Reveal>
 
-        <Reveal className="account">
-          <div className="acct-ic"><Banknote size={28} /></div>
-          <div className="acct-main">
-            <small>Pay to this account</small>
-            <strong id="acct-no">{ACCOUNT.number}</strong>
-            <span>{ACCOUNT.name} · {ACCOUNT.bank}</span>
-          </div>
-          <button className="btn btn-yellow" onClick={copy}>{copied ? <><Check size={18} /> Copied</> : <><Copy size={18} /> Copy number</>}</button>
-        </Reveal>
+        <div className="accounts">
+          <p className="accounts-note">Pay to either account. Both are in the same name, Chika Chukwudinma.</p>
+          {ACCOUNTS.map((a) => <AccountCard key={a.number} a={a} />)}
+        </div>
       </div>
     </section>
   )

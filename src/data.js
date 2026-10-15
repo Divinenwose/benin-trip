@@ -75,4 +75,7 @@ export const REQS = [
   { id: 'sim', name: 'SIM cards', img: null, tip: 'A local Benin SIM keeps maps and the group chat running while we move around.' },
 ]
 
-export const ACCOUNT = { number: '0169451421', name: 'Chika Chukwudinma', bank: 'Union Bank' }
+export const ACCOUNTS = [
+  { number: '0169451421', name: 'Chika Chukwudinma', bank: 'Union Bank', label: 'Main account' },
+  { number: '0092624633', name: 'Chika Chukwudinma', bank: 'Sterling Bank', label: 'Alternative account' },
+]

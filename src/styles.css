@@ -352,3 +352,6 @@ small { font-size: .82rem; }
 @keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
 .vopt.locked { opacity: .55; }
 .vopt.locked:hover { transform: none; border-color: var(--line); }
+
+.accounts { display: flex; flex-direction: column; gap: 14px; }
+.accounts-note { color: var(--muted); font-weight: 600; }
