@@ -22,8 +22,9 @@ const saveLocal = (b) => { try { localStorage.setItem(LS, JSON.stringify(b)) } c
 export const hasVoted = (b) => !!(b && (b.t1 || b.t2))
 
 
-const SB_URL = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '')
-const SB_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+const clean = (v) => String(v || '').trim().replace(/^["']+|["']+$/g, '').trim()
+const SB_URL = clean(import.meta.env.VITE_SUPABASE_URL).replace(/\/+$/, '').replace(/\/rest\/v1$/, '')
+const SB_KEY = clean(import.meta.env.VITE_SUPABASE_ANON_KEY)
 export const sbConfigured = !!(SB_URL && SB_KEY)
 const sbHeaders = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' }
 
@@ -43,7 +44,7 @@ const sha256 = async (txt) => {
 }
 const sbFetchVotes = async () => {
   const r = await fetch(SB_URL + '/rest/v1/votes?select=id,voter_hash,name,t1,t2,updated_at&order=updated_at.asc', { headers: sbHeaders })
-  if (!r.ok) throw new Error('read ' + r.status)
+  if (!r.ok) throw new Error('read ' + r.status + ' ' + (await r.text().catch(() => '')).slice(0, 180))
   return r.json()
 }
 const sbCast = async (token, b) => {
@@ -51,7 +52,7 @@ const sbCast = async (token, b) => {
     method: 'POST', headers: sbHeaders,
     body: JSON.stringify({ p_voter: token, p_name: b.name || '', p_t1: b.t1 || null, p_t2: b.t2 || null }),
   })
-  if (!r.ok) throw new Error('write ' + r.status)
+  if (!r.ok) throw new Error('write ' + r.status + ' ' + (await r.text().catch(() => '')).slice(0, 180))
 }
 
 // Votes: Claude artifact db when available, then Supabase when configured, else this device only.
@@ -60,6 +61,7 @@ export function useVotes() {
   const [remote, setRemote] = useState([])
   const [mode, setMode] = useState('local') // local | shared
   const [err, setErr] = useState(null)
+  const [errInfo, setErrInfo] = useState('')
   const [saved, setSaved] = useState(0)
   const ctx = useRef(null)
   const latest = useRef(mine)
@@ -90,7 +92,7 @@ export function useVotes() {
               const rows = await sbFetchVotes()
               if (dead) return
               setRemote(rows.map((r) => ({ ...r, id: r.id })))
-              setMode('shared'); setErr(null)
+              setMode('shared'); setErr(null); setErrInfo('')
               if (!seeded.current) {
                 seeded.current = true
                 const me = myHash && rows.find((r) => r.voter_hash === myHash)
@@ -99,7 +101,7 @@ export function useVotes() {
                   latest.current = rest; setMine(rest); saveLocal(rest)
                 }
               }
-            } catch (e) { setErr('unavailable') }
+            } catch (e) { setErr('unavailable'); setErrInfo(String((e && e.message) || e)) }
           }
           await load()
           const iv = setInterval(() => { if (!document.hidden) load() }, 5000)
@@ -137,8 +139,8 @@ export function useVotes() {
       const snapshot = { ...latest.current }
       chain.current = chain.current
         .then(() => sbCast(sb.current.token, snapshot))
-        .then(() => { setErr(null); setSaved((n) => n + 1); return sb.current.reload && sb.current.reload() })
-        .catch(() => setErr('unavailable'))
+        .then(() => { setErr(null); setErrInfo(''); setSaved((n) => n + 1); return sb.current.reload && sb.current.reload() })
+        .catch((e) => { setErr('unavailable'); setErrInfo(String((e && e.message) || e)) })
       return
     }
     const c = ctx.current
@@ -165,7 +167,7 @@ export function useVotes() {
   let ballots = remote.filter((r) => r.id !== uid && !(myHash && r.voter_hash === myHash))
   if (hasVoted(mine)) ballots = [...ballots, { id: uid || myHash || 'me', ...mine }]
 
-  return { mine, update, ballots, mode, err, saved }
+  return { mine, update, ballots, mode, err, errInfo, saved }
 }
 
 export const tally = (ballots, pick) => {

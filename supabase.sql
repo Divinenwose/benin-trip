@@ -39,3 +39,6 @@ revoke all on function public.cast_vote(text, text, text, text) from public;
 grant execute on function public.cast_vote(text, text, text, text) to anon, authenticated;
 
 -- To start the vote over at any time:  delete from public.votes;
+
+-- Make the API see the new table and function right away.
+notify pgrst, 'reload schema';

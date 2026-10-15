@@ -344,3 +344,5 @@ small { font-size: .82rem; }
 .vtable th { font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); background: rgba(255,255,255,.05); } .vtable tr:last-child td { border-bottom: 0; }
 @media (max-width: 980px) { .win-grid { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .pair-row { grid-template-columns: 1fr auto; } .pair-row em { display: none; } }
+
+.err-detail { display: block; margin-top: 6px; opacity: .85; font-family: ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
