@@ -12,6 +12,10 @@ create table if not exists public.votes (
 
 alter table public.votes enable row level security;
 
+-- Newer Supabase projects do not grant table access automatically.
+grant usage on schema public to anon, authenticated;
+grant select on public.votes to anon, authenticated;
+
 -- Everyone can read the tally. Nobody can write to the table directly.
 drop policy if exists "read votes" on public.votes;
 create policy "read votes" on public.votes for select to anon, authenticated using (true);
