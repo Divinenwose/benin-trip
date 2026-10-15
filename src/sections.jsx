@@ -641,7 +641,7 @@ export function Payment() {
         </Reveal>
 
         <div className="accounts">
-          <p className="accounts-note">Pay to either account. Both are in the same name, Chika Chukwudinma.</p>
+          <p className="accounts-note">Pay to either account. Both are in the same name, Chika Chukwudinma Favour.</p>
           {ACCOUNTS.map((a) => <AccountCard key={a.number} a={a} />)}
         </div>
       </div>

@@ -76,6 +76,6 @@ export const REQS = [
 ]
 
 export const ACCOUNTS = [
-  { number: '0169451421', name: 'Chika Chukwudinma', bank: 'Union Bank', label: 'Main account' },
-  { number: '0092624633', name: 'Chika Chukwudinma', bank: 'Sterling Bank', label: 'Alternative account' },
+  { number: '0169451421', name: 'Chika Chukwudinma Favour', bank: 'Union Bank', label: 'Main account' },
+  { number: '0092624633', name: 'Chika Chukwudinma Favour', bank: 'Sterling Bank', label: 'Alternative account' },
 ]
