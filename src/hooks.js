@@ -21,7 +21,40 @@ const saveLocal = (b) => { try { localStorage.setItem(LS, JSON.stringify(b)) } c
 
 export const hasVoted = (b) => !!(b && (b.t1 || b.t2))
 
-// Shared votes through the artifact db when available, local-only otherwise.
+
+const SB_URL = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '')
+const SB_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+export const sbConfigured = !!(SB_URL && SB_KEY)
+const sbHeaders = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' }
+
+const voterToken = () => {
+  try {
+    let t = localStorage.getItem('benin26-voter')
+    if (!t) {
+      t = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()) + '-' + Math.random().toString(36).slice(2)
+      localStorage.setItem('benin26-voter', t)
+    }
+    return t
+  } catch { return null }
+}
+const sha256 = async (txt) => {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt))
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+const sbFetchVotes = async () => {
+  const r = await fetch(SB_URL + '/rest/v1/votes?select=id,voter_hash,name,t1,t2,updated_at&order=updated_at.asc', { headers: sbHeaders })
+  if (!r.ok) throw new Error('read ' + r.status)
+  return r.json()
+}
+const sbCast = async (token, b) => {
+  const r = await fetch(SB_URL + '/rest/v1/rpc/cast_vote', {
+    method: 'POST', headers: sbHeaders,
+    body: JSON.stringify({ p_voter: token, p_name: b.name || '', p_t1: b.t1 || null, p_t2: b.t2 || null }),
+  })
+  if (!r.ok) throw new Error('write ' + r.status)
+}
+
+// Votes: Claude artifact db when available, then Supabase when configured, else this device only.
 export function useVotes() {
   const [mine, setMine] = useState(loadLocal)
   const [remote, setRemote] = useState([])
@@ -33,6 +66,7 @@ export function useVotes() {
   const timer = useRef(null)
   const chain = useRef(Promise.resolve())
   const seeded = useRef(false)
+  const sb = useRef(null)
 
   useEffect(() => {
     let dead = false
@@ -40,10 +74,40 @@ export function useVotes() {
     ;(async () => {
       try {
         const c = window.claude
-        if (!c || !c.use) return
-        const [db, user] = await Promise.all([c.use('db'), c.use('user')])
-        const uid = user ? await user.id() : null
-        if (dead || !db || !uid) return
+        let db = null, uid = null
+        if (c && c.use) {
+          const [d, user] = await Promise.all([c.use('db'), c.use('user')])
+          uid = user ? await user.id() : null
+          db = d
+        }
+        if (dead) return
+        if ((!db || !uid) && sbConfigured) {
+          const token = voterToken()
+          const myHash = token && window.crypto && crypto.subtle ? await sha256(token) : null
+          sb.current = { token, myHash }
+          const load = async () => {
+            try {
+              const rows = await sbFetchVotes()
+              if (dead) return
+              setRemote(rows.map((r) => ({ ...r, id: r.id })))
+              setMode('shared'); setErr(null)
+              if (!seeded.current) {
+                seeded.current = true
+                const me = myHash && rows.find((r) => r.voter_hash === myHash)
+                if (me && !hasVoted(latest.current)) {
+                  const rest = { name: me.name || '', t1: me.t1 || null, t2: me.t2 || null }
+                  latest.current = rest; setMine(rest); saveLocal(rest)
+                }
+              }
+            } catch (e) { setErr('unavailable') }
+          }
+          await load()
+          const iv = setInterval(() => { if (!document.hidden) load() }, 5000)
+          unsub = () => clearInterval(iv)
+          sb.current.reload = load
+          return
+        }
+        if (!db || !uid) return
         ctx.current = { db, uid }
         unsub = db.collection('votes').onSnapshot(
           (snap) => {
@@ -69,6 +133,14 @@ export function useVotes() {
   }, [])
 
   const push = useCallback(() => {
+    if (sb.current && sb.current.token) {
+      const snapshot = { ...latest.current }
+      chain.current = chain.current
+        .then(() => sbCast(sb.current.token, snapshot))
+        .then(() => { setErr(null); setSaved((n) => n + 1); return sb.current.reload && sb.current.reload() })
+        .catch(() => setErr('unavailable'))
+      return
+    }
     const c = ctx.current
     if (!c) return
     const ballot = { ...latest.current, at: Date.now() }
@@ -89,8 +161,9 @@ export function useVotes() {
 
   // Ballots shown to everyone: remote rows, with my own row replaced by my live copy.
   const uid = ctx.current ? ctx.current.uid : null
-  let ballots = remote.filter((r) => r.id !== uid)
-  if (hasVoted(mine)) ballots = [...ballots, { id: uid || 'me', ...mine }]
+  const myHash = sb.current ? sb.current.myHash : null
+  let ballots = remote.filter((r) => r.id !== uid && !(myHash && r.voter_hash === myHash))
+  if (hasVoted(mine)) ballots = [...ballots, { id: uid || myHash || 'me', ...mine }]
 
   return { mine, update, ballots, mode, err, saved }
 }

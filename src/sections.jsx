@@ -395,7 +395,7 @@ const who = (ballots, test) => {
 function Notice({ votes }) {
   if (votes.err === 'invalid_argument') return <p className="notice warn">Your vote is saved on this device, but this page only accepts shared votes from people with contributor access. Ask the organiser to share it with you as a contributor.</p>
   if (votes.err) return <p className="notice warn">The shared tally could not be reached just now. Your picks are saved on this device and will sync on your next change.</p>
-  if (votes.mode === 'local') return <p className="notice">You are in solo mode: picks are saved on this device only. Open the shared link in Claude to count with everyone.</p>
+  if (votes.mode === 'local') return <p className="notice">You are in solo mode: picks are saved on this device only. Open the shared voting link to count with everyone.</p>
   return <p className="notice ok"><i /> Live tally. Everyone's votes update here as they come in.</p>
 }
 
